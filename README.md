@@ -1,5 +1,8 @@
 # .dotfiles-claude
 
+**Explainer:** [einsteinx2.github.io/.dotfiles-claude](https://einsteinx2.github.io/.dotfiles-claude/)
+shows how the workflow works and why.
+
 This repo holds user-level Claude Code files: skills, rules, and agents. `install.sh` links each
 item into `~/.claude`. Your own `CLAUDE.md`, skills, rules, and agents stay in place.
 
