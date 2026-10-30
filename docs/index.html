@@ -1,0 +1,857 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clean Commits Workflow</title>
+<meta name="description" content="How the .dotfiles-claude workflow commits, reviews, and fixes each change that Claude Code makes, and why.">
+<style>
+  :root {
+    --bg: #eef1f4;
+    --surface: #ffffff;
+    --ink: #1b2430;
+    --muted: #556070;
+    --line: #cdd5de;
+    --blue: #2f5bea;
+    --teal: #17806a;
+    --amber: #b0740a;
+    --code-bg: #e2e7ed;
+    --blue-soft: rgba(47, 91, 234, 0.1);
+    --teal-soft: rgba(23, 128, 106, 0.1);
+    --amber-soft: rgba(176, 116, 10, 0.12);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --rail: 0px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10151c;
+      --surface: #18202a;
+      --ink: #e6ebf1;
+      --muted: #98a4b4;
+      --line: #2b3644;
+      --blue: #7c9bff;
+      --teal: #4cc3a1;
+      --amber: #e7b44a;
+      --code-bg: #1f2934;
+      --blue-soft: rgba(124, 155, 255, 0.14);
+      --teal-soft: rgba(76, 195, 161, 0.13);
+      --amber-soft: rgba(231, 180, 74, 0.14);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151c;
+    --surface: #18202a;
+    --ink: #e6ebf1;
+    --muted: #98a4b4;
+    --line: #2b3644;
+    --blue: #7c9bff;
+    --teal: #4cc3a1;
+    --amber: #e7b44a;
+    --code-bg: #1f2934;
+    --blue-soft: rgba(124, 155, 255, 0.14);
+    --teal-soft: rgba(76, 195, 161, 0.13);
+    --amber-soft: rgba(231, 180, 74, 0.14);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 1.15rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--blue); text-underline-offset: 0.18em; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 4px; }
+  code, kbd, pre { font-family: var(--mono); font-size: 0.88em; }
+  code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+  kbd { border: 1px solid var(--line); border-bottom-width: 2px; padding: 0 0.35em; border-radius: 4px; background: var(--surface); }
+  pre {
+    background: var(--code-bg);
+    padding: 1rem 1.15rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    line-height: 1.6;
+    margin: 0;
+  }
+  pre code { background: none; padding: 0; font-size: 1em; }
+
+  /* Rail: a commit graph that is also the section nav. */
+  .rail { display: none; }
+  @media (min-width: 900px) {
+    :root { --rail: 84px; }
+    .rail {
+      display: block;
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: var(--rail);
+      z-index: 5;
+    }
+    .rail ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.9rem;
+    }
+    /* Each item draws the line from its dot to the next dot. */
+    .rail li { position: relative; }
+    .rail li:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 41px;
+      top: 50%;
+      height: calc(100% + 0.9rem);
+      width: 2px;
+      background: var(--line);
+    }
+    .rail a {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding-left: 34px;
+      text-decoration: none;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      white-space: nowrap;
+      position: relative;
+      z-index: 1;
+    }
+    .rail a::before {
+      content: "";
+      width: 12px;
+      height: 12px;
+      flex: none;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 2px solid var(--muted);
+      transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    }
+    .rail a span {
+      opacity: 0;
+      transform: translateX(-4px);
+      transition: opacity 0.15s, transform 0.15s;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+    .rail a:hover span, .rail a:focus-visible span { opacity: 1; transform: none; }
+    .rail a[aria-current="true"]::before { background: var(--blue); border-color: var(--blue); transform: scale(1.25); }
+  }
+
+  main { padding-left: var(--rail); }
+  section {
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4.5rem 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .wrap { width: 100%; max-width: 1040px; margin: 0 auto; }
+  @media (min-width: 700px) { section { padding: 5rem 40px; } }
+
+  .src {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 0 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .src::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--blue);
+  }
+  h1, h2, h3 { font-family: var(--mono); font-weight: 650; letter-spacing: -0.02em; line-height: 1.15; margin: 0; }
+  h1 { font-size: clamp(2.1rem, 5.4vw, 4.1rem); max-width: 18ch; }
+  h2 { font-size: clamp(1.6rem, 3.4vw, 2.6rem); max-width: 26ch; }
+  h3 { font-size: 1.05rem; letter-spacing: -0.01em; }
+  .why {
+    font-size: clamp(1.15rem, 1.9vw, 1.45rem);
+    color: var(--muted);
+    max-width: 52ch;
+    margin: 1rem 0 2.2rem;
+  }
+  .why strong { color: var(--ink); font-weight: 600; }
+  p { margin: 0 0 0.8rem; }
+  ul.plain { margin: 0; padding-left: 1.2rem; }
+  ul.plain li { margin-bottom: 0.4rem; }
+  ul.plain li::marker { color: var(--muted); }
+  .muted { color: var(--muted); }
+  .small { font-size: 0.95rem; }
+
+  .grid { display: grid; gap: 1rem; }
+  .grid > *, .split > *, .contexts > * { min-width: 0; }
+  @media (min-width: 760px) {
+    .g2 { grid-template-columns: 1fr 1fr; }
+    .g3 { grid-template-columns: repeat(3, 1fr); }
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.2rem 1.3rem;
+  }
+  .card h3 { margin-bottom: 0.5rem; }
+  .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+
+  /* Title */
+  #top .lead { font-size: clamp(1.15rem, 2vw, 1.5rem); max-width: 50ch; margin: 1.4rem 0 2.2rem; }
+  .strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    margin-bottom: 2.2rem;
+  }
+  .strip span { padding: 0.35rem 0.7rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+  .strip i { font-style: normal; color: var(--muted); }
+  .hint { margin-top: 2rem; color: var(--muted); font-size: 0.95rem; }
+  .hint-touch { display: none; }
+  @media (hover: none) { .hint-keys { display: none; } .hint-touch { display: inline; } }
+
+  /* Problem: a noisy log */
+  .noisy { font-family: var(--mono); font-size: 0.9rem; margin: 0.6rem 0 0; padding: 0; list-style: none; }
+  .noisy li { padding: 0.15rem 0; color: var(--muted); }
+  .noisy li b { color: var(--amber); font-weight: 500; }
+  .callout {
+    margin-top: 1.4rem;
+    border-left: 3px solid var(--amber);
+    padding: 0.2rem 0 0.2rem 1rem;
+    max-width: 60ch;
+  }
+
+  /* Core loop */
+  .loop {
+    list-style: none;
+    margin: 0 0 1.8rem;
+    padding: 0;
+    display: grid;
+    gap: 1.6rem;
+  }
+  @media (min-width: 900px) {
+    .loop { grid-template-columns: repeat(5, 1fr); gap: 1.6rem; }
+  }
+  .loop li {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--who);
+    border-radius: 10px;
+    padding: 0.9rem 1rem 1rem;
+  }
+  .loop li[data-who="you"] { --who: var(--ink); }
+  .loop li[data-who="claude"] { --who: var(--blue); }
+  .loop li[data-who="fork"] { --who: var(--teal); background: var(--teal-soft); }
+  .loop .who { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .loop h3 { margin: 0.3rem 0 0.4rem; font-size: 1rem; }
+  .loop p { font-size: 0.92rem; margin: 0; color: var(--muted); }
+  .loop li:not(:last-child)::after {
+    content: "\2193";
+    position: absolute;
+    left: 50%;
+    bottom: -0.8rem;
+    transform: translate(-50%, 50%);
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1;
+  }
+  @media (min-width: 900px) {
+    .loop li:not(:last-child)::after {
+      content: "\2192";
+      left: auto;
+      right: -1.6rem;
+      top: 50%;
+      bottom: auto;
+      width: 1.6rem;
+      text-align: center;
+      transform: translateY(-50%);
+    }
+  }
+  .legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; font-size: 0.88rem; color: var(--muted); margin-bottom: 1.6rem; }
+  .legend span::before { content: ""; display: inline-block; width: 0.8rem; height: 4px; margin-right: 0.4rem; vertical-align: middle; background: var(--c); border-radius: 2px; }
+
+  /* /commit: hunks grouped by concern */
+  .split { display: grid; gap: 1.2rem; align-items: start; }
+  @media (min-width: 860px) { .split { grid-template-columns: 1fr auto 1fr; } }
+  .split .arrow { font-family: var(--mono); color: var(--muted); align-self: center; text-align: center; font-size: 0.85rem; }
+  .files, .commits { list-style: none; margin: 0; padding: 0; font-family: var(--mono); font-size: 0.88rem; }
+  .files li, .commits li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 6px;
+    margin-bottom: 0.4rem;
+    overflow-wrap: anywhere;
+  }
+  .files .name { flex: 1; min-width: 0; }
+  .chips { display: flex; gap: 4px; flex: none; }
+  .chip { width: 14px; height: 14px; border-radius: 3px; background: var(--c); }
+  .ca { --c: var(--blue); }
+  .cb { --c: var(--teal); }
+  .cc { --c: var(--amber); }
+  .files .note { font-size: 0.72rem; color: var(--muted); flex: none; }
+  .commits li { gap: 0.75rem; }
+  .commits .n { color: var(--muted); flex: none; }
+  .head-label { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); margin: 0 0 0.5rem; }
+
+  /* /cr --fix */
+  .contexts { display: grid; gap: 1rem; margin-bottom: 1.4rem; }
+  @media (min-width: 760px) { .contexts { grid-template-columns: 1fr 1fr; } }
+  .ctx { border-radius: 10px; padding: 1.1rem 1.25rem; border: 1px solid var(--line); background: var(--surface); }
+  .ctx.fork { border-color: var(--teal); background: var(--teal-soft); }
+  .ctx h3 { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .ctx .tag { font-size: 0.72rem; font-weight: 500; padding: 0.1rem 0.45rem; border-radius: 4px; background: var(--code-bg); color: var(--muted); }
+  .bar { display: grid; gap: 0.6rem; margin: 0.6rem 0 0.4rem; }
+  @media (min-width: 760px) { .bar { grid-template-columns: repeat(3, 1fr); } }
+  .bar div { border: 1px dashed var(--line); border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.92rem; }
+  .bar b { font-family: var(--mono); display: block; font-size: 0.85rem; }
+  .report { counter-reset: r; list-style: none; padding: 0; margin: 0; font-size: 0.95rem; }
+  .report li { counter-increment: r; padding: 0.15rem 0; }
+  .report li::before { content: counter(r) "."; font-family: var(--mono); color: var(--muted); display: inline-block; width: 1.6rem; }
+
+  /* Amend, don't append: the log */
+  .amend-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.8rem; }
+  .toggle {
+    font: 600 0.95rem var(--mono);
+    color: var(--bg);
+    background: var(--ink);
+    border: 0;
+    border-radius: 8px;
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+  }
+  .toggle:hover { background: var(--blue); }
+  .illus { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+  .log {
+    list-style: none;
+    margin: 0 0 1.8rem;
+    padding: 0.6rem 0;
+    font-family: var(--mono);
+    font-size: clamp(0.82rem, 1.6vw, 1rem);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    position: relative;
+  }
+  .log li {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.45s ease, opacity 0.35s ease, background 0.4s ease, visibility 0.45s;
+  }
+  .log li > div {
+    overflow: hidden;
+    min-height: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.8rem;
+    padding: 0.45rem 1rem 0.45rem 2.6rem;
+    position: relative;
+  }
+  .log li > div::before {
+    content: "";
+    position: absolute;
+    left: 1.05rem;
+    top: 0.85rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2px solid var(--blue);
+  }
+  .log::before {
+    content: "";
+    position: absolute;
+    left: calc(1.05rem + 5px);
+    top: 1.2rem;
+    bottom: 1.2rem;
+    width: 2px;
+    background: var(--line);
+  }
+  .log .sha { color: var(--amber); }
+  .log .fx > div::before { border-color: var(--amber); }
+  .log .fx .msg { color: var(--amber); }
+  .log .ref { font-size: 0.78em; color: var(--muted); }
+  .log .ok { font-size: 0.74em; color: var(--teal); border: 1px solid var(--teal); border-radius: 4px; padding: 0 0.4em; opacity: 0; transition: opacity 0.3s ease 0.3s; }
+  .log[data-state="amend"] .fx { grid-template-rows: 0fr; opacity: 0; visibility: hidden; }
+  .log[data-state="amend"] .fx > div { padding-top: 0; padding-bottom: 0; }
+  .log[data-state="amend"] .ok { opacity: 1; }
+  .log[data-state="amend"] .c > div::before { background: var(--teal); border-color: var(--teal); }
+  .log .c.flash { background: var(--teal-soft); }
+  .log[data-state="append"] .ok { display: none; }
+
+  .why3 { display: grid; gap: 1rem; }
+  @media (min-width: 760px) { .why3 { grid-template-columns: repeat(3, 1fr); } }
+  .why3 .card h3 { color: var(--teal); }
+
+  /* Deep review */
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: var(--mono); font-weight: 600; font-size: 0.85rem; }
+  thead th { color: var(--muted); }
+  tbody th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+  .table-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 1.4rem; }
+  .table-scroll table tr:last-child > * { border-bottom: 0; }
+  .pipe { list-style: none; margin: 0; padding: 0; counter-reset: p; }
+  .pipe li { counter-increment: p; position: relative; padding: 0 0 0.75rem 2.2rem; font-size: 0.97rem; }
+  .pipe li::before {
+    content: counter(p);
+    position: absolute;
+    left: 0;
+    top: 0.05rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--c, var(--blue));
+    color: var(--c, var(--blue));
+    font: 600 0.78rem/1.4rem var(--mono);
+    text-align: center;
+  }
+  .pipe.t { --c: var(--teal); }
+  .angles { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem; }
+  .angles span { font-family: var(--mono); font-size: 0.78rem; padding: 0.15rem 0.5rem; border-radius: 4px; background: var(--blue-soft); }
+
+  /* Rules */
+  .ba { display: grid; gap: 0.6rem; margin: 0.8rem 0 0; }
+  .ba p { margin: 0; padding: 0.7rem 0.9rem; border-radius: 8px; font-size: 0.97rem; }
+  .ba .before { background: var(--amber-soft); }
+  .ba .after { background: var(--teal-soft); }
+  .ba b { font-family: var(--mono); font-size: 0.75rem; display: block; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* Guardrails */
+  .guards { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; }
+  @media (min-width: 760px) { .guards { grid-template-columns: 1fr 1fr; } }
+  .guards li { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 0.8rem 1rem; }
+  .guards b { font-family: var(--mono); font-size: 0.95rem; display: block; }
+  .guards span { font-size: 0.92rem; color: var(--muted); }
+
+  footer { padding: 2rem 16px 3rem; padding-left: calc(var(--rail) + 16px); color: var(--muted); font-size: 0.9rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<nav class="rail" aria-label="Sections">
+  <ol id="rail"></ol>
+</nav>
+
+<main>
+
+<section id="top" data-label="Start">
+  <div class="wrap">
+    <p class="src">github.com/einsteinx2/.dotfiles-claude</p>
+    <h1>Each change ends as clean, reviewed commits.</h1>
+    <p class="lead">This repo installs a Claude Code workflow. After each change that you ask for, Claude splits the work into logical commits. Then a fresh agent reviews those commits, fixes the problems, and amends the fixes into the commits. You get a branch that is ready to read.</p>
+    <div class="strip" aria-label="The loop in short">
+      <span>you ask</span><i>&rarr;</i><span>Claude changes</span><i>&rarr;</i><span>/commit</span><i>&rarr;</i><span>/cr --fix</span><i>&rarr;</i><span>you push</span>
+    </div>
+    <pre><code>git clone https://github.com/einsteinx2/.dotfiles-claude.git ~/.dotfiles-claude
+~/.dotfiles-claude/install.sh</code></pre>
+    <p class="hint"><span class="hint-keys">Press <kbd>&rarr;</kbd> or <kbd>j</kbd> for the next section, <kbd>&larr;</kbd> or <kbd>k</kbd> for the previous one.</span><span class="hint-touch">Scroll for the next section.</span></p>
+  </div>
+</section>
+
+<section id="problem" data-label="The problem">
+  <div class="wrap">
+    <p class="src">the problem</p>
+    <h2>Without a workflow, agent history is noisy.</h2>
+    <p class="why">An agent writes code fast. The history it leaves is often hard to review and easy to learn wrong things from.</p>
+    <div class="grid g3">
+      <div class="card">
+        <h3>One large commit</h3>
+        <p>A reviewer cannot read the change in steps. A revert removes everything, also the good parts.</p>
+      </div>
+      <div class="card">
+        <h3>Fix on fix</h3>
+        <p>Each attempt stays in the history:</p>
+        <ul class="noisy">
+          <li>Retry failed uploads</li>
+          <li><b>Fix retry bug</b></li>
+          <li><b>Fix the fix</b></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Self-review agrees with itself</h3>
+        <p>The session that wrote the code reads its own reasoning again. It misses the same problems the second time.</p>
+      </div>
+    </div>
+    <p class="callout">Later sessions read this history too. An agent that continues the branch sees the wrong attempt and its fixes, and it can copy the wrong attempt.</p>
+  </div>
+</section>
+
+<section id="loop" data-label="The core loop">
+  <div class="wrap">
+    <p class="src">rules/workflow.md</p>
+    <h2>The core loop runs after each change.</h2>
+    <p class="why">The rule makes Claude <strong>commit and review each change automatically</strong>. You do not type the commands, and you cannot forget them.</p>
+    <ol class="loop">
+      <li data-who="you"><span class="who">You</span><h3>Ask for a change</h3><p>A feature, a fix, a refactor. Any size.</p></li>
+      <li data-who="claude"><span class="who">Claude</span><h3>Make the change</h3><p>The normal work in the main session.</p></li>
+      <li data-who="claude"><span class="who">Claude &middot; automatic</span><h3><code>/commit</code></h3><p>Split the work into logical, self-contained commits.</p></li>
+      <li data-who="fork"><span class="who">Fresh context &middot; automatic</span><h3><code>/cr --fix</code></h3><p>Review only the new commits. Fix each real finding. Amend the fixes.</p></li>
+      <li data-who="you"><span class="who">You</span><h3>Validate and push</h3><p>Read the report. Answer the open questions. Push when you agree.</p></li>
+    </ol>
+    <div class="legend">
+      <span style="--c: var(--ink)">you</span>
+      <span style="--c: var(--blue)">main Claude session</span>
+      <span style="--c: var(--teal)">forked review context</span>
+    </div>
+    <div class="grid g3 small">
+      <div class="card"><h3>Scoped review</h3><p>The rule counts the new commits. If the branch holds earlier work, the review covers only the last N commits, not the whole branch again.</p></div>
+      <div class="card"><h3>No push</h3><p>Claude never pushes and never opens a pull request. You validate the change and push it.</p></div>
+      <div class="card"><h3>No empty runs</h3><p>If the work changes no file under version control, Claude skips both steps.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="commit" data-label="/commit">
+  <div class="wrap">
+    <p class="src">skills/commit/SKILL.md</p>
+    <h2>Split the work by concern, not by file.</h2>
+    <p class="why">A commit is <strong>a unit of review, of revert, and of history</strong>. A reviewer reads one idea at a time. After a rebase merge, each commit on main still holds one idea.</p>
+    <div class="split">
+      <div>
+        <p class="head-label">working tree</p>
+        <ul class="files">
+          <li><span class="name">db/migrations/0042_retry_count.sql</span><span class="chips"><i class="chip ca"></i></span></li>
+          <li><span class="name">src/upload/queue.ts</span><span class="note">git add -p</span><span class="chips"><i class="chip ca"></i><i class="chip cb"></i></span></li>
+          <li><span class="name">src/upload/retry.ts</span><span class="chips"><i class="chip cb"></i></span></li>
+          <li><span class="name">src/upload/retry.test.ts</span><span class="chips"><i class="chip cb"></i></span></li>
+          <li><span class="name">docs/uploads.md</span><span class="chips"><i class="chip cc"></i></span></li>
+        </ul>
+      </div>
+      <div class="arrow" aria-hidden="true">/commit<br>&rarr;</div>
+      <div>
+        <p class="head-label">commits, oldest first</p>
+        <ol class="commits">
+          <li><span class="n">1</span><span class="chips"><i class="chip ca"></i></span><span>Add retry count to the uploads table</span></li>
+          <li><span class="n">2</span><span class="chips"><i class="chip cb"></i></span><span>Retry failed uploads with backoff</span></li>
+          <li><span class="n">3</span><span class="chips"><i class="chip cc"></i></span><span>Document the retry settings</span></li>
+        </ol>
+      </div>
+    </div>
+    <ul class="plain small" style="margin-top:1.4rem">
+      <li>The skill reads the full diff first: staged, unstaged, and untracked files.</li>
+      <li>It puts prerequisites and refactors first. Each commit builds and makes sense alone.</li>
+      <li>It uses <code>git add -p</code> when one file holds changes for two concerns. Tests stay with the change they cover.</li>
+      <li>If the work is one logical unit, one commit is correct. The skill does not split one unit into more commits.</li>
+      <li>On the default branch, it creates a new branch first.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="review" data-label="/cr --fix">
+  <div class="wrap">
+    <p class="src">skills/cr/SKILL.md</p>
+    <h2>A fresh agent reviews the commits and fixes them.</h2>
+    <p class="why">The writer of the code is <strong>its weakest reviewer</strong>. A reader with no memory of the work reads the code as it is, not as it was meant to be.</p>
+    <div class="contexts">
+      <div class="ctx">
+        <h3>Main session <span class="tag">wrote the code</span></h3>
+        <p class="small muted">It knows the intent, the failed attempts, and the shortcuts it took. It reads its own code with those assumptions.</p>
+      </div>
+      <div class="ctx fork">
+        <h3>Review <span class="tag">context: fork</span></h3>
+        <p class="small muted">It starts clean and reads only the diff and the repo. It looks for bugs, security problems, broken edge cases, and regressions.</p>
+      </div>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <h3>The fix bar</h3>
+        <p class="small">The review fixes every finding that it is sure is real. It can leave a finding unfixed for one of three reasons only:</p>
+        <div class="bar">
+          <div><b>Decision</b>A product, design, or naming choice for you.</div>
+          <div><b>Scope</b>The fix needs work outside the diff.</div>
+          <div><b>Risk</b>No test, and the contract is unclear.</div>
+        </div>
+        <p class="small muted">"Minor" and "pre-existing" are not reasons to skip. Before the report, a re-triage pass checks each skipped item again.</p>
+      </div>
+      <div class="card">
+        <h3>The report</h3>
+        <p class="small">The review runs in its own context, so the report is the only thing that comes back. It always has six sections:</p>
+        <ol class="report">
+          <li>Fixes applied, with the commit that carries each one</li>
+          <li>Confirmed correct</li>
+          <li>Needs your decision</li>
+          <li>Deliberately not fixed</li>
+          <li>Notes and open decisions</li>
+          <li>Verification: the commands it ran</li>
+        </ol>
+        <p class="small muted" style="margin-top:0.6rem">If items 3 or 4 have entries, Claude asks you once which ones to fix.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="amend" data-label="Amend">
+  <div class="wrap">
+    <p class="src">amend, don't append</p>
+    <h2>Each fix goes into the commit that needs it.</h2>
+    <p class="why">The review amends a fix into the commit that introduced the problem. It adds a new commit only for an unrelated fix. <strong>The branch holds only commits that are already correct.</strong></p>
+    <div class="amend-head">
+      <button class="toggle" id="amend-toggle" type="button" aria-pressed="false">Amend the fixes</button>
+      <span class="illus">Illustration &middot; git log --oneline, newest first</span>
+    </div>
+    <ol class="log" id="log" data-state="append" aria-live="polite">
+      <li class="fx" data-target="a"><div><span class="sha">5c0e7a1</span><span class="msg">Fix the backoff fix</span><span class="ref">fixes 9d4b2c7</span></div></li>
+      <li class="fx" data-target="b"><div><span class="sha">e19f2d4</span><span class="msg">Fix the default value in the migration</span><span class="ref">fixes 3a71f08</span></div></li>
+      <li class="fx" data-target="a"><div><span class="sha">b82d6e3</span><span class="msg">Fix off-by-one in the backoff delay</span><span class="ref">fixes 9d4b2c7</span></div></li>
+      <li class="c" data-id="c"><div><span class="sha" data-after="f2c48b9">71aa3d5</span><span class="msg">Document the retry settings</span><span class="ok">reviewed</span></div></li>
+      <li class="c" data-id="a"><div><span class="sha" data-after="0be95f2">9d4b2c7</span><span class="msg">Retry failed uploads with backoff</span><span class="ok">amended</span></div></li>
+      <li class="c" data-id="b"><div><span class="sha" data-after="c6d3a40">3a71f08</span><span class="msg">Add retry count to the uploads table</span><span class="ok">amended</span></div></li>
+    </ol>
+    <div class="why3">
+      <div class="card"><h3>For human reviewers</h3><p class="small">Each commit is correct when you read it. You do not read a mistake in one commit and its fix three commits later.</p></div>
+      <div class="card"><h3>For a rebase merge</h3><p class="small">The commits land on main as they are. Main gets a clean set of commits, with no fix chain.</p></div>
+      <div class="card"><h3>For agents</h3><p class="small">A later session that continues the branch reads only correct code. It does not see a wrong attempt, so it cannot copy one.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="deep" data-label="/cr-deep + /cr-apply">
+  <div class="wrap">
+    <p class="src">skills/cr-deep/SKILL.md &middot; skills/cr-apply/SKILL.md</p>
+    <h2>Deep review: find in one session, apply in the next.</h2>
+    <p class="why"><code>/cr</code> runs after each change. At the end of a non-trivial task, or at checkpoints in a large task, <strong>you run a much deeper review</strong>. It is slower and it finds more.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th></th><th><code>/cr --fix</code></th><th><code>/cr-deep</code> + <code>/cr-apply</code></th></tr></thead>
+        <tbody>
+          <tr><th>Start</th><td>Automatic, after each change</td><td>You run it</td></tr>
+          <tr><th>Reviewers</th><td>One agent in a forked context</td><td>Several agents in parallel, one for each angle</td></tr>
+          <tr><th>Depth</th><td>Medium, by default</td><td>High, by default</td></tr>
+          <tr><th>Speed</th><td>Fast</td><td>Much slower</td></tr>
+          <tr><th>Output</th><td>Fixes, then a report in the chat</td><td>A report file, then fixes in a separate session</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <h3><code>/cr-deep</code> finds</h3>
+        <ol class="pipe">
+          <li>The orchestrator starts parallel reviewers, one for each angle:
+            <div class="angles"><span>correctness</span><span>security</span><span>regressions</span><span>conventions</span><span>performance</span><span>duplication</span></div>
+          </li>
+          <li>It removes duplicates and ranks the findings by severity.</li>
+          <li>It writes every finding to <code>code-review-&lt;branch&gt;-&lt;date&gt;.md</code>. The file stays untracked. By default, it changes no code.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3><code>/cr-apply</code> applies</h3>
+        <ol class="pipe t">
+          <li>It creates a backup branch.</li>
+          <li>It groups the findings by code area and runs the groups in sequence.</li>
+          <li>Each group gets 1 to 5 agents. Parallel agents work in separate worktrees, on separate files.</li>
+          <li>Each agent checks each finding against the current code before it fixes it.</li>
+          <li>Each fix is a <code>fixup!</code> commit, folded with autosquash into the commit that introduced the defect.</li>
+          <li>It writes a status for each finding into the report.</li>
+        </ol>
+      </div>
+    </div>
+    <p class="callout small">Why two sessions: you can read the report before anything changes. A stopped run continues at the next open group. A finding that is wrong gets no fix.</p>
+  </div>
+</section>
+
+<section id="rules" data-label="Rules">
+  <div class="wrap">
+    <p class="src">rules/</p>
+    <h2>Three rules load in every session.</h2>
+    <p class="why">Claude Code loads each file in <code>~/.claude/rules/</code> in every project. They add to your own <code>CLAUDE.md</code>. They do not replace it.</p>
+    <div class="grid g3">
+      <div class="card">
+        <h3>workflow.md</h3>
+        <p class="small">Runs <code>/commit</code> and <code>/cr --fix</code> after each change. Never pushes.</p>
+      </div>
+      <div class="card" style="grid-row: span 2">
+        <h3>writing-style.md</h3>
+        <p class="small">All prose is in Simplified Technical English (ASD-STE100): chat messages, plans, commit messages, PR text, and code comments.</p>
+        <ul class="plain small">
+          <li>Less ambiguity: one word, one meaning.</li>
+          <li>Faster human review of commits and reports.</li>
+          <li>No filler, no hedging.</li>
+          <li>Much less tiring to read agent output all day.</li>
+        </ul>
+        <div class="ba">
+          <p class="before"><b>Before</b>It might be worth considering moving the cache, since it seems like it could possibly be causing some of the flakiness we've been seeing.</p>
+          <p class="after"><b>After</b>The handlers share the cache. This causes the flaky test. Move the cache into the request.</p>
+        </div>
+      </div>
+      <div class="card">
+        <h3>zsh.md</h3>
+        <p class="small">Shell rules so that commands work the first time in zsh: quoted globs, no bash-only syntax. They apply only if your login shell is zsh.</p>
+      </div>
+      <div class="card">
+        <h3>This page</h3>
+        <p class="small muted">The text on this page follows <code>writing-style.md</code> too.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="tools" data-label="Other tools">
+  <div class="wrap">
+    <p class="src">skills/</p>
+    <h2>Three more skills.</h2>
+    <p class="why">These support the workflow. You run each one when you need it.</p>
+    <div class="grid g3">
+      <div class="card"><h3>/ff-merge</h3><p class="small">Lands a topic worktree on the feature branch it came from. It rebases the topic branch, then fast-forwards the feature branch. On a conflict, it stops and reports. It never makes a merge commit.</p></div>
+      <div class="card"><h3>/memory-cleanup</h3><p class="small">Checks each auto-memory of the project against the repo. It repairs the index, merges duplicates, and removes stale entries. You confirm each change that loses information.</p></div>
+      <div class="card"><h3>/dotfiles-update</h3><p class="small">Shows the new commits of this repo and the skills and rules that change. After you confirm, it updates the clone and runs <code>install.sh</code>.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="guards" data-label="Guardrails">
+  <div class="wrap">
+    <p class="src">guardrails</p>
+    <h2>You stay in control of what leaves your machine.</h2>
+    <p class="why">The skills rewrite local history. <strong>They never rewrite shared history.</strong></p>
+    <ul class="guards">
+      <li><b>No push, no pull request</b><span>No skill pushes or opens a pull request. You validate and push.</span></li>
+      <li><b>No commits on the default branch</b><span><code>/commit</code> creates a branch first.</span></li>
+      <li><b>No rewrite of main</b><span>Amends and fixups target only commits after the merge base.</span></li>
+      <li><b>Backup before bulk fixes</b><span><code>/cr-apply</code> creates a backup branch, and prints the restore command at the end.</span></li>
+      <li><b>No shared stash</b><span><code>/cr-apply</code> and <code>/ff-merge</code> never use <code>git stash</code>. All worktrees share one stash stack.</span></li>
+      <li><b>Questions come to you</b><span>Design choices and risky fixes go into the report. Claude asks before it applies them.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="install" data-label="Install">
+  <div class="wrap">
+    <p class="src">install.sh &middot; update.sh</p>
+    <h2>Install with one script. Remove with one flag.</h2>
+    <p class="why">The script links each item into <code>~/.claude</code>. <strong>It does not copy files and does not change your <code>CLAUDE.md</code>.</strong></p>
+    <div class="grid g2">
+      <div>
+        <p class="head-label">install, then start a new Claude Code session</p>
+        <pre><code>git clone https://github.com/einsteinx2/.dotfiles-claude.git ~/.dotfiles-claude
+~/.dotfiles-claude/install.sh</code></pre>
+        <p class="head-label" style="margin-top:1rem">update</p>
+        <pre><code>/dotfiles-update                   # in Claude Code
+~/.dotfiles-claude/update.sh       # in a terminal</code></pre>
+        <p class="head-label" style="margin-top:1rem">uninstall</p>
+        <pre><code>~/.dotfiles-claude/install.sh --uninstall</code></pre>
+      </div>
+      <div class="card">
+        <h3>What the script does</h3>
+        <ul class="plain small">
+          <li>It is idempotent. You can run it again at any time.</li>
+          <li>If you have an item with the same name, for example your own <code>/commit</code>, the script keeps your item and skips the item of this repo.</li>
+          <li><code>--force</code> moves your item to <code>~/.claude/backups/dotfiles-claude/</code>, then links the item of this repo.</li>
+          <li>It removes links to items that the repo no longer has.</li>
+          <li>It uses <code>CLAUDE_CONFIG_DIR</code> if you set it.</li>
+          <li>Keep the clone in place. The links point into it.</li>
+        </ul>
+        <p class="small muted" style="margin:0.8rem 0 0">Needs macOS or Linux, <code>git</code>, and <code>bash</code>. Details are in the <a href="https://github.com/einsteinx2/.dotfiles-claude#readme">README</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <a href="https://github.com/einsteinx2/.dotfiles-claude">github.com/einsteinx2/.dotfiles-claude</a> &middot; public domain
+</footer>
+
+<script>
+(function () {
+  var sections = Array.prototype.slice.call(document.querySelectorAll("main > section"));
+  var rail = document.getElementById("rail");
+  var links = sections.map(function (s) {
+    var li = document.createElement("li");
+    var a = document.createElement("a");
+    a.href = "#" + s.id;
+    var label = document.createElement("span");
+    label.textContent = s.getAttribute("data-label");
+    a.setAttribute("aria-label", s.getAttribute("data-label"));
+    a.appendChild(label);
+    li.appendChild(a);
+    rail.appendChild(li);
+    return a;
+  });
+
+  var current = 0;
+  function mark(i) {
+    current = i;
+    links.forEach(function (a, j) { a.setAttribute("aria-current", j === i ? "true" : "false"); });
+  }
+  mark(0);
+
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) mark(sections.indexOf(e.target));
+      });
+    }, { rootMargin: "-45% 0px -45% 0px" });
+    sections.forEach(function (s) { io.observe(s); });
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    var step = 0;
+    if (e.key === "ArrowRight" || e.key === "j") step = 1;
+    if (e.key === "ArrowLeft" || e.key === "k") step = -1;
+    if (!step) return;
+    var next = Math.max(0, Math.min(sections.length - 1, current + step));
+    e.preventDefault();
+    sections[next].scrollIntoView();
+    mark(next);
+  });
+
+  // Amend illustration: fold each fixup into its target commit. An amend gives the commit a new hash.
+  var log = document.getElementById("log");
+  var btn = document.getElementById("amend-toggle");
+  var shas = Array.prototype.slice.call(log.querySelectorAll(".c .sha"));
+  shas.forEach(function (s) { s.setAttribute("data-before", s.textContent); });
+  btn.addEventListener("click", function () {
+    var amend = log.getAttribute("data-state") === "append";
+    log.setAttribute("data-state", amend ? "amend" : "append");
+    btn.setAttribute("aria-pressed", amend ? "true" : "false");
+    btn.textContent = amend ? "Show the appended fixes" : "Amend the fixes";
+    shas.forEach(function (s) {
+      s.textContent = s.getAttribute(amend ? "data-after" : "data-before");
+    });
+    log.querySelectorAll(".c").forEach(function (c) {
+      var hit = log.querySelector('.fx[data-target="' + c.getAttribute("data-id") + '"]');
+      if (!amend || !hit) return;
+      c.classList.add("flash");
+      setTimeout(function () { c.classList.remove("flash"); }, 900);
+    });
+  });
+})();
+</script>
+</body>
+</html>
