@@ -8,8 +8,8 @@ item into `~/.claude`. Your own `CLAUDE.md`, skills, rules, and agents stay in p
 **Rules.** Claude Code loads each file in `~/.claude/rules/` in every session and every project.
 The rules apply in addition to your own `~/.claude/CLAUDE.md`.
 
-- `workflow.md`: after each approved plan, Claude commits the work with `/commit` and reviews it
-  with `/cr --fix`. Claude never pushes and never opens a PR.
+- `workflow.md`: after each change that you ask for, Claude commits the work with `/commit` and
+  reviews it with `/cr --fix`. Claude never pushes and never opens a PR.
 - `writing-style.md`: Claude writes all prose in Simplified Technical English (ASD-STE100).
 - `zsh.md`: shell rules for the Bash tool. They apply only if your login shell is zsh.
 

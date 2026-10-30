@@ -1,7 +1,6 @@
 ## Standard implementation workflow
 
-Finish each approved plan with the two steps below. When you write a plan in plan mode, end the
-plan with these two steps. Do them as part of the execution of the approved plan.
+Finish each change that the user asks for with the two steps below.
 
 1. **Commit** — invoke the `/commit` skill to split the work into logical, self-contained
    commits. Do not write the commits yourself; use the skill.
