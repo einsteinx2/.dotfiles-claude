@@ -469,42 +469,14 @@
 <section id="top" data-label="Start">
   <div class="wrap">
     <p class="src">github.com/einsteinx2/.dotfiles-claude</p>
-    <h1>Each change ends as clean, reviewed commits.</h1>
-    <p class="lead">This repo installs a Claude Code workflow. After each change that you ask for, Claude splits the work into logical commits. Then a fresh agent reviews those commits, fixes the problems, and amends the fixes into the commits. You get a branch that is ready to read.</p>
+    <h1>A simple, opinionated Claude Code workflow</h1>
+    <p class="lead">This repo installs my personal Claude Code workflow which I've been iterating on over the past year. After each change that you ask for, Claude splits the work into logical commits. Then a fresh agent reviews those commits, fixes the problems, and amends the fixes into the commits. You get a branch that is ready to read.</p>
     <div class="strip" aria-label="The loop in short">
       <span>you ask</span><i>&rarr;</i><span>Claude changes</span><i>&rarr;</i><span>/commit</span><i>&rarr;</i><span>/cr --fix</span><i>&rarr;</i><span>you push</span>
     </div>
     <pre><code>git clone https://github.com/einsteinx2/.dotfiles-claude.git ~/.dotfiles-claude
 ~/.dotfiles-claude/install.sh</code></pre>
     <p class="hint"><span class="hint-keys">Press <kbd>&rarr;</kbd> or <kbd>j</kbd> for the next section, <kbd>&larr;</kbd> or <kbd>k</kbd> for the previous one.</span><span class="hint-touch">Scroll for the next section.</span></p>
-  </div>
-</section>
-
-<section id="problem" data-label="The problem">
-  <div class="wrap">
-    <p class="src">the problem</p>
-    <h2>Without a workflow, agent history is noisy.</h2>
-    <p class="why">An agent writes code fast. The history it leaves is often hard to review and easy to learn wrong things from.</p>
-    <div class="grid g3">
-      <div class="card">
-        <h3>One large commit</h3>
-        <p>A reviewer cannot read the change in steps. A revert removes everything, also the good parts.</p>
-      </div>
-      <div class="card">
-        <h3>Fix on fix</h3>
-        <p>Each attempt stays in the history:</p>
-        <ul class="noisy">
-          <li>Retry failed uploads</li>
-          <li><b>Fix retry bug</b></li>
-          <li><b>Fix the fix</b></li>
-        </ul>
-      </div>
-      <div class="card">
-        <h3>Self-review agrees with itself</h3>
-        <p>The session that wrote the code reads its own reasoning again. It misses the same problems the second time.</p>
-      </div>
-    </div>
-    <p class="callout">Later sessions read this history too. An agent that continues the branch sees the wrong attempt and its fixes, and it can copy the wrong attempt.</p>
   </div>
 </section>
 
@@ -530,6 +502,34 @@
       <div class="card"><h3>No push</h3><p>Claude never pushes and never opens a pull request. You validate the change and push it.</p></div>
       <div class="card"><h3>No empty runs</h3><p>If the work changes no file under version control, Claude skips both steps.</p></div>
     </div>
+  </div>
+</section>
+
+<section id="problem" data-label="Why clean commits">
+  <div class="wrap">
+    <p class="src">why /commit and /cr --fix</p>
+    <h2>Agent commits are often hard to review.</h2>
+    <p class="why">An agent writes code fast, but it does not take care of the history. The next two steps fix these three problems.</p>
+    <div class="grid g3">
+      <div class="card">
+        <h3>One large commit</h3>
+        <p>A reviewer cannot read the change in steps. A revert removes everything, also the good parts.</p>
+      </div>
+      <div class="card">
+        <h3>Fix on fix</h3>
+        <p>Each attempt stays in the history:</p>
+        <ul class="noisy">
+          <li>Retry failed uploads</li>
+          <li><b>Fix retry bug</b></li>
+          <li><b>Fix the fix</b></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Self-review agrees with itself</h3>
+        <p>The session that wrote the code reads its own reasoning again. It misses the same problems the second time.</p>
+      </div>
+    </div>
+    <p class="callout">Later sessions read this history too. An agent that continues the branch sees the wrong attempt and its fixes, and it can copy the wrong attempt.</p>
   </div>
 </section>
 
@@ -637,6 +637,22 @@
   </div>
 </section>
 
+<section id="guards" data-label="Guardrails">
+  <div class="wrap">
+    <p class="src">guardrails</p>
+    <h2>You stay in control of what leaves your machine.</h2>
+    <p class="why">The skills rewrite local history. <strong>They never rewrite shared history.</strong></p>
+    <ul class="guards">
+      <li><b>No push, no pull request</b><span>No skill pushes or opens a pull request. You validate and push.</span></li>
+      <li><b>No commits on the default branch</b><span><code>/commit</code> creates a branch first.</span></li>
+      <li><b>No rewrite of main</b><span>Amends and fixups target only commits after the merge base.</span></li>
+      <li><b>Backup before bulk fixes</b><span><code>/cr-apply</code> creates a backup branch, and prints the restore command at the end.</span></li>
+      <li><b>No shared stash</b><span><code>/cr-apply</code> and <code>/ff-merge</code> never use <code>git stash</code>. All worktrees share one stash stack.</span></li>
+      <li><b>Questions come to you</b><span>Design choices and risky fixes go into the report. Claude asks before it applies them.</span></li>
+    </ul>
+  </div>
+</section>
+
 <section id="deep" data-label="/cr-deep + /cr-apply">
   <div class="wrap">
     <p class="src">skills/cr-deep/SKILL.md &middot; skills/cr-apply/SKILL.md</p>
@@ -678,6 +694,26 @@
       </div>
     </div>
     <p class="callout small">Why two sessions: you can read the report before anything changes. A stopped run continues at the next open group. A finding that is wrong gets no fix.</p>
+  </div>
+</section>
+
+<section id="planning" data-label="Planning">
+  <div class="wrap">
+    <p class="src">large changes</p>
+    <h2>Plan in files. One session per phase.</h2>
+    <p class="why">A plan step still matters. Without it, Claude often builds its first idea. With it, Claude looks at other approaches and edge cases first. <strong>Plan in a normal session, not in plan mode.</strong> The plan is a markdown file in the repo: read it in your editor, discuss it with Claude, check it in, and update it as the work changes.</p>
+    <ol class="loop">
+      <li data-who="you"><span class="who">Session 1</span><h3>High-level plan</h3><p>Ask for the phases. Claude saves them as a markdown file in the repo.</p></li>
+      <li data-who="claude"><span class="who">New session</span><h3>Phase plan</h3><p>Ask for a plan file for one phase. Read it and discuss it with Claude.</p></li>
+      <li data-who="claude"><span class="who">Auto or bypass mode</span><h3>Build the phase</h3><p>The core loop runs after each change.</p></li>
+      <li data-who="fork"><span class="who">You run it</span><h3><code>/cr-deep</code></h3><p>Deep review, scoped to the phase commits. Then <code style="white-space: nowrap">/cr-apply</code> in a new session.</p></li>
+      <li data-who="you"><span class="who">You</span><h3>Next phase</h3><p>Go back to step 2 with a new session.</p></li>
+    </ol>
+    <div class="grid g3 small">
+      <div class="card"><h3>Clean context</h3><p>Each session starts from the plan file. The planning does not fill the context of the build.</p></div>
+      <div class="card"><h3>A model for each step</h3><p>Each step is its own session. For example, plan with the strongest model and build with a faster one.</p></div>
+      <div class="card"><h3>Quality for each phase</h3><p>A phase is small enough for a deep review to be thorough. A defect does not carry into the next phase.</p></div>
+    </div>
   </div>
 </section>
 
@@ -727,22 +763,6 @@
       <div class="card"><h3>/memory-cleanup</h3><p class="small">Checks each auto-memory of the project against the repo. It repairs the index, merges duplicates, and removes stale entries. You confirm each change that loses information.</p></div>
       <div class="card"><h3>/dotfiles-update</h3><p class="small">Shows the new commits of this repo and the skills and rules that change. After you confirm, it updates the clone and runs <code>install.sh</code>.</p></div>
     </div>
-  </div>
-</section>
-
-<section id="guards" data-label="Guardrails">
-  <div class="wrap">
-    <p class="src">guardrails</p>
-    <h2>You stay in control of what leaves your machine.</h2>
-    <p class="why">The skills rewrite local history. <strong>They never rewrite shared history.</strong></p>
-    <ul class="guards">
-      <li><b>No push, no pull request</b><span>No skill pushes or opens a pull request. You validate and push.</span></li>
-      <li><b>No commits on the default branch</b><span><code>/commit</code> creates a branch first.</span></li>
-      <li><b>No rewrite of main</b><span>Amends and fixups target only commits after the merge base.</span></li>
-      <li><b>Backup before bulk fixes</b><span><code>/cr-apply</code> creates a backup branch, and prints the restore command at the end.</span></li>
-      <li><b>No shared stash</b><span><code>/cr-apply</code> and <code>/ff-merge</code> never use <code>git stash</code>. All worktrees share one stash stack.</span></li>
-      <li><b>Questions come to you</b><span>Design choices and risky fixes go into the report. Claude asks before it applies them.</span></li>
-    </ul>
   </div>
 </section>
 
