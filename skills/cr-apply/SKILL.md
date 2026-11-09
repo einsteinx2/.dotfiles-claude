@@ -140,6 +140,10 @@ agent, or finder. Do not use any multi-agent orchestration. One agent does this 
    code at the current HEAD. Confirm the defect is real and still present. Decide one status:
    `fixed`, `skipped(<reason>)`, or `n/a(<note>)`. Apply no fix for a finding that does not
    hold. A convergence row is one fix that closes all of its IDs; give each ID the same status.
+   A product, design, or naming choice is not a reason to skip. If the finding has a
+   `- **Decision:**` line, apply that option. If the fix needs a choice that the report does not
+   make, choose the option you recommend and apply it. If no option is clearly best, or the
+   options differ in large scope, apply the smaller, safe option.
 2. Apply the fixes for the whole set. Fix sibling defects of the same shape inside the files of
    the set. Run the narrowest check that covers each change: the compile or type check of the
    package, or the affected test file. Use the commands that the project documents, for example
@@ -156,8 +160,11 @@ agent, or finder. Do not use any multi-agent orchestration. One agent does this 
    - the subjects of the commits you amended or targeted with a fixup, and the subjects of the
      new normal commits,
    - the checks you ran and their results, verbatim where short,
-   - anything the user should decide: a finding you were unsure about, an adjacent defect
-     outside the set, a check you could not run.
+   - the decisions you made, one numbered entry each: the finding ID, the choice in bold, and
+     `Rejected:` with each option not taken and its reason in a few words. Mark a smaller, safe
+     option of a large-scope choice. Do not ask the user; the orchestrator lists them,
+   - notes: a finding you were unsure about, an adjacent defect outside the set, a check you
+     could not run.
 ```
 
 Commit rules for single mode:
@@ -226,7 +233,10 @@ When no `open` group remains, report:
 - the amended commits and the new top-of-branch commits,
 - `git rev-list --count <MERGE_BASE>..HEAD` at the start and at the end,
 - the backup branch name, and the command to restore it:
-  `git reset --hard <backup-branch>`.
+  `git reset --hard <backup-branch>`,
+- a `## Decisions I made for you` section, last: every decision entry of every agent, in group
+  order, with the marked smaller, safe options first, and each `skipped` finding as a decision
+  to leave it for later. Do not ask the user about any of them.
 
 ### Rules
 

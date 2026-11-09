@@ -38,14 +38,17 @@ The report file must preserve every sub-agent's findings in full:
 - Include **every** finding from every sub-agent, including low-priority, minor, and informational items. Do not condense, filter, or omit anything except true duplicates.
 - Deduplication means collapsing identical findings only; when merging duplicates, keep the most detailed writeup.
 - Each finding must retain: severity, confidence, `file:line` references, description, evidence/reasoning, and a suggested fix.
-- Suggested structure: metadata header (branch, commits reviewed, date, review angles/agents spawned), a summary table of counts by severity, then all findings grouped by severity, each written out in full detail.
+- The report holds no open decision. If the fix of a finding is a product, design, or naming choice, choose the option you recommend and write it as the suggested fix. Add a line `- **Decision:** <the choice>. Rejected: <each option not taken, with its reason in a few words>.` If no option is clearly best, or the options differ in large scope (days of work, a different design), choose the smaller, safe option and say so in the line.
+- Suggested structure: metadata header (branch, commits reviewed, date, review angles/agents spawned), a summary table of counts by severity, a `## Decisions` section (one numbered entry per `Decision` line: the finding ID, the choice in bold, and `Rejected:` with the options not taken; the smaller, safe options first), then all findings grouped by severity, each written out in full detail.
 
 ### Final message (report-only mode)
-Your final message must be **only** a short summary and the file path: severity counts, the report file path, and this explicit statement:
+Your final message must be **only** a short summary, the file path, and the decisions: severity counts, the report file path, this explicit statement:
 
 > Report saved to `<path>`. Per this skill's contract, no fixes were applied and none should be applied by this session — fixes are handled in a separate validation session.
 
-Do not echo the findings into the chat, and do not suggest or begin any fixes.
+and then a `## Decisions I made for you` section with the entries of the report's `## Decisions` section (the finding ID, the choice in bold, and `Rejected:` with the options not taken). Write "None" if the report has no decision.
+
+Do not echo the other findings into the chat, and do not suggest or begin any fixes.
 
 ### Fix behavior (only when --fix is explicitly present)
 - Write the report file first (same requirements as above), then apply the fixes yourself.
@@ -53,32 +56,30 @@ Do not echo the findings into the chat, and do not suggest or begin any fixes.
 - If the fix is unrelated or warrants its own commit, create one new commit per independent fix on top of the branch.
 
 #### Fix bar (must obey)
-Fix every finding you are confident is real. Leave a finding unfixed only for one of these three reasons:
+Fix every finding you are confident is real. Leave a finding unfixed only for one of these two reasons:
 
-1. **Decision** — the correct behavior is a product, design, or naming choice that only the user can make.
-2. **Scope** — the fix needs work outside the diff: a refactor of untouched code, a new dependency, a schema or API change, or a change to a file this branch does not touch.
-3. **Risk** — the fix could change behavior that you cannot verify here, because there is no test and the intended contract is unclear.
+1. **Scope** — the fix needs work outside the diff: a refactor of untouched code, a new dependency, a schema or API change, or a change to a file this branch does not touch.
+2. **Risk** — the fix could change behavior that you cannot verify here, because there is no test and the intended contract is unclear.
 
 Rules that go with the bar:
 
+- A product, design, or naming choice is **not** a reason to skip. Apply the option of the finding's `Decision` line and record it under "Decisions made".
 - "Minor", "cosmetic", "low severity", "pre-existing", and "not strictly needed" are **not** reasons to skip. Fix them.
 - A finding you are unsure is real is not a skip. Investigate it. Then fix it or drop it as not a finding.
 - If a finding meets a skip reason but has a safe partial fix, apply the partial fix. Then report the remainder.
 
 #### Re-triage pass (must obey)
-Do this step before you write the final message. Walk your skip list one item at a time. For each item, name which of the three reasons applies. If no reason applies, fix the item now and move it to "Fixes applied". An empty skip list is a normal and good result.
+Do this step before you write the final message. Walk your skip list one item at a time. For each item, name which of the two reasons applies. If no reason applies, fix the item now and move it to "Fixes applied". An empty skip list is a normal and good result.
 
 ### Final message (fix mode)
 The report file carries the full finding detail. Your final message must hold these four sections, in this order. Write "None" under a section that has no entries.
 
 1. **Fixes applied** — one entry per fix. Give the `file:line`, what was wrong, what you changed, and which commit carries it. State whether you amended an existing commit or created a new one.
-2. **Needs your decision** — one entry per item left unfixed for reason 1 (Decision). Give the `file:line`, the problem, the options, and which option you would pick.
-3. **Deliberately not fixed** — one entry per item left unfixed for reason 2 (Scope) or reason 3 (Risk). Name the reason, and say what a fix would take.
+2. **Decisions made** — one numbered entry per choice you applied. Start the entry with the choice in bold. Give the finding ID and the `file:line`. End with `Rejected:` and each option not taken, with its reason in a few words. Put the smaller, safe options of large-scope choices first, and mark them.
+3. **Deliberately not fixed** — one entry per item left unfixed for reason 1 (Scope) or reason 2 (Risk). Name the reason, and say what a fix would take.
 4. **Report file** — the path of the report file.
 
-Do not condense, reorder, or omit any section.
-
-If "Needs your decision" or "Deliberately not fixed" holds any item, then end the final message with a question: ask the user which of those items to fix. Ask once, with the items numbered. Do not fix them before the user answers.
+Do not condense, reorder, or omit any section. Do not ask the user about any item. End the final message with a `## Decisions I made for you` section: each entry of "Decisions made", and each entry of "Deliberately not fixed" as a decision to leave it for later.
 
 ### Effort
 Default to high thoroughness. Respect any explicit effort level the user provided.
