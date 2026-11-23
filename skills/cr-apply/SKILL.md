@@ -213,8 +213,13 @@ Replace `<WORKTREE>` with the absolute path of the worktree of the slice.
 
 ### Phase 2: after each group
 
-1. Print the final message of each agent verbatim for the user. Do not condense it. In slice
-   mode, print the output of `integrate-slices.sh` too.
+1. Print a short summary of the group for the user, not the final message of each agent:
+   the counts per status, one line for each fix that matters (a bug, a safety or money point,
+   a behavior change), and each check that failed. Put anything particularly important on its
+   own line: a safety invariant, a behavior change, a finding left open, a defect outside the
+   set. In slice mode, print only the problems that `integrate-slices.sh` reports. Keep the
+   decisions of the agents for the final summary. If the user asks for the full messages,
+   print them verbatim.
 2. Verify the branch state:
    - `git status --porcelain` shows only untracked files.
    - `git log --format=%s <MERGE_BASE>..HEAD | grep -c '^fixup!'` prints `0`.

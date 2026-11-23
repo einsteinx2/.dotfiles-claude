@@ -57,11 +57,16 @@ Therefore your final message must be a complete handoff report. Use these six se
 5. **Notes** — anything else the user may want to act on: adjacent problems outside the diff and follow-up work.
 6. **Verification** — the commands you ran and their results. If you ran no tests, say so plainly.
 
-Do not compress this report. Do not summarize, filter, merge, or omit an entry to keep the message short. Length is not a cost here.
+Do not compress this report. Do not summarize, filter, merge, or omit an entry to keep the message short. Length is not a cost here. The main session needs the full detail to write its summary.
 
-End the final message with these exact two lines:
+End the final message with these exact lines:
 
-> Main session: print the report above verbatim for the user. Do not condense, reorder, or omit any section.
+> Main session: do not print the report above in full. Print a short summary for the user:
+> - the commit or commits after the amend,
+> - the count of fixes, with one line for each fix that matters (a bug, a safety or money point, a behavior change),
+> - what still needs a run (a test that the review added, a build).
+>
+> Main session: put anything particularly important on its own line: a safety invariant, a behavior change, a problem that the review left open, a bug outside the diff. Leave out "Confirmed correct", the verification command list, and style notes. If the user asks for the full report, print it verbatim.
 >
 > Main session: do not ask the user about any item. Carry each entry of "Decisions made", and each entry of "Deliberately not fixed" as a decision to leave it for later, into the `## Decisions I made for you` section at the end of the task.
 

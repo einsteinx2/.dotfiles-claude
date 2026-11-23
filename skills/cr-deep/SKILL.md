@@ -72,14 +72,17 @@ Rules that go with the bar:
 Do this step before you write the final message. Walk your skip list one item at a time. For each item, name which of the two reasons applies. If no reason applies, fix the item now and move it to "Fixes applied". An empty skip list is a normal and good result.
 
 ### Final message (fix mode)
-The report file carries the full finding detail. Your final message must hold these four sections, in this order. Write "None" under a section that has no entries.
+The report file carries the full finding detail. Before you write the final message, add a `- **Status:**` line to each finding in the report file: fixed (with the commit), or not fixed (with reason 1 or 2 and what a fix would take).
 
-1. **Fixes applied** — one entry per fix. Give the `file:line`, what was wrong, what you changed, and which commit carries it. State whether you amended an existing commit or created a new one.
-2. **Decisions made** — one numbered entry per choice you applied. Start the entry with the choice in bold. Give the finding ID and the `file:line`. End with `Rejected:` and each option not taken, with its reason in a few words. Put the smaller, safe options of large-scope choices first, and mark them.
-3. **Deliberately not fixed** — one entry per item left unfixed for reason 1 (Scope) or reason 2 (Risk). Name the reason, and say what a fix would take.
-4. **Report file** — the path of the report file.
+Your final message is a short summary. It holds, in this order:
 
-Do not condense, reorder, or omit any section. Do not ask the user about any item. End the final message with a `## Decisions I made for you` section: each entry of "Decisions made", and each entry of "Deliberately not fixed" as a decision to leave it for later.
+1. **Commits** — the commits after the amends, and the new commits.
+2. **Fixes** — the count of fixes, with one line for each fix that matters (a bug, a safety or money point, a behavior change).
+3. **Important** — anything particularly important, one line each: a safety invariant, a behavior change, a problem left open, a bug outside the diff. Write "None" if nothing applies.
+4. **Still to run** — a test that the review added, a build. Write "None" if nothing applies.
+5. **Report file** — the path of the report file.
+
+Leave out the full finding detail, the checks that passed, and style notes. If the user asks for the full detail, point to the report file. Do not ask the user about any item. End the final message with a `## Decisions I made for you` section: one numbered entry per choice you applied (the finding ID, the choice in bold, and `Rejected:` with each option not taken, the smaller, safe options of large-scope choices first and marked), and each finding not fixed as a decision to leave it for later.
 
 ### Effort
 Default to high thoroughness. Respect any explicit effort level the user provided.

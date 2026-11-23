@@ -27,7 +27,8 @@ the reviews that its fixes trigger. Choose the recommended option, apply it, and
 user follows the recommendation in most cases and changes the few they disagree with.
 
 - The `/cr`, `/cr-deep`, and `/cr-apply` skills already apply this rule and report their
-  decisions. Carry their decisions into the list below. Still print a `/cr` report verbatim.
+  decisions. Carry their decisions into the list below. Print a `/cr` report as the short
+  summary that the skill asks for, not in full.
 - If a decision has no clear recommendation, or the options differ in large scope (days of work,
   a different design), choose the smaller, safe option. Put that decision first in the list and
   mark it.
