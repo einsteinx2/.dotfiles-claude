@@ -17,3 +17,6 @@ Write commands so they work the first time.
   bash-only.
 - If a command needs bash semantics, run it as `bash -c '...'` or write a script with
   `#!/usr/bin/env bash`.
+- `noclobber` is on. A redirect `cmd > file` to a file that exists fails at once with "file
+  exists", and the command never runs. Use `>|` (or a new file name) to overwrite a log or
+  output file, especially in background jobs.
